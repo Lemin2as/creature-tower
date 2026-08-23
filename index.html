@@ -332,8 +332,23 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
 .sprite.tsel .sigil{box-shadow:0 0 0 3px #b07fe0,0 0 18px rgba(176,127,224,.6)}
 .sprite.acting .sigil{box-shadow:0 0 0 3px var(--gold),0 0 20px rgba(217,180,95,.55)}
 /* 이미지 스프라이트는 사각 테두리 대신 실루엣을 따라가는 글로우 */
-.sprite.tsel .artbox img{filter:drop-shadow(0 0 3px #b07fe0) drop-shadow(0 0 9px rgba(176,127,224,.75)) drop-shadow(0 3px 6px rgba(0,0,0,.6))}
-.sprite.acting .artbox img{filter:drop-shadow(0 0 3px var(--gold)) drop-shadow(0 0 9px rgba(217,180,95,.7)) drop-shadow(0 3px 6px rgba(0,0,0,.6))}
+/* 진화 크리처의 .artbox.xl.evolved img 규칙이 선택자 우선순위가 더 높아
+   지정 · 행동 하이라이트를 덮어쓰고 있었다. 같은 수준으로 맞춰 준다. */
+.sprite.tsel .artbox img,
+.sprite.tsel .artbox.xl.evolved img{
+  filter:drop-shadow(0 0 3px #b07fe0) drop-shadow(0 0 10px rgba(176,127,224,.85)) drop-shadow(0 3px 6px rgba(0,0,0,.6));
+  animation:tselPulse 1.1s ease-in-out infinite;
+}
+.sprite.acting .artbox img,
+.sprite.acting .artbox.xl.evolved img{
+  filter:drop-shadow(0 0 3px var(--gold)) drop-shadow(0 0 9px rgba(217,180,95,.7)) drop-shadow(0 3px 6px rgba(0,0,0,.6));
+}
+@keyframes tselPulse{
+  0%,100%{filter:drop-shadow(0 0 3px #b07fe0) drop-shadow(0 0 8px rgba(176,127,224,.55)) drop-shadow(0 3px 6px rgba(0,0,0,.6))}
+  50%    {filter:drop-shadow(0 0 5px #c79bef) drop-shadow(0 0 16px rgba(176,127,224,.95)) drop-shadow(0 3px 6px rgba(0,0,0,.6))}
+}
+/* 도트 아이콘(이미지 미등록) 쪽도 진화 여부와 무관하게 같은 강조를 받는다 */
+.sprite.tsel .sigil.evolved{box-shadow:0 0 0 3px #b07fe0,0 0 18px rgba(176,127,224,.6)}
 .sprite .snm{font-size:9.5px;color:#dbe4f4;background:#070a11d9;border:1px solid #2c3651;
   border-radius:2px;padding:0 6px;white-space:nowrap;text-shadow:0 1px 2px #000}
 .sprite .plat{position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);
@@ -724,7 +739,13 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
   min-width:330px;max-width:660px;max-height:100%;overflow-y:auto}
 .popbox .ptitle{
   background:linear-gradient(180deg,#2b3348,#1a2131);border-bottom:1px solid var(--win-edge2);
-  padding:5px 12px;font-size:11.5px;font-weight:700;color:#e5d3a3;text-align:center;letter-spacing:.04em}
+  padding:5px 12px;font-size:11.5px;font-weight:700;color:#e5d3a3;text-align:center;letter-spacing:.04em;
+  position:relative}
+/* 제목 줄 오른쪽 끝 닫기 */
+.popbox .ptx{
+  position:absolute;top:50%;right:7px;transform:translateY(-50%);
+  font-size:11px;line-height:1;color:#a08f63;padding:3px 5px;border-radius:3px}
+.popbox .ptx:hover{color:#e5d3a3;background:#00000038}
 .popbox .pbody{padding:18px 20px 14px;text-align:center;position:relative}
 .popbox .pmsg{font-size:13px;line-height:1.7}
 .popbox .psub{font-size:11px;color:var(--txt2);margin-top:8px;line-height:1.6}
@@ -1827,6 +1848,38 @@ function resolveSkill(att,skill,targets){
   if(!att.isEnemy) RUN.lastAllySkill=skill;
   const tl=targets.filter(t=>t&&!t.fainted);
   if(!tl.length){ log("그러나 대상이 없다","l-miss"); return; }
+  /* 전체 공격은 대상 전원에게 동시에 들어간다.
+     한 명씩 처리하면 체력이 차례로 깎여 보여, 광역기가 단일기 연타처럼 읽힌다. */
+  if(skill.type==="ATTACK"&&tl.length>1){
+    const res=tl.map(t=>{
+      if(!hitCheck(att,skill)) return {t,miss:true};
+      const {dmg,crit}=calcDamage(att,t,skill.power);
+      return {t,dmg,crit};
+    });
+    const downed=[];
+    for(const r of res) if(!r.miss && damageTo(r.t,r.dmg)) downed.push(r.t);
+    const text=res.map(r=>r.miss
+      ? `${r.t.name} 빗나감`
+      : `${r.t.name} ${r.crit?"급소! ":""}${r.dmg}`).join(" · ");
+    const fxs=res.filter(r=>!r.miss).map(r=>({kind:"hit",uid:r.t.uid,dmg:r.dmg,crit:r.crit}))
+      .concat(res.filter(r=>r.miss).map(r=>({kind:"miss",uid:r.t.uid})));
+    log(text, res.some(r=>r.crit)?"l-crit":"l-dmg", fxs);
+    for(const t of downed){
+      log(`${t.name} 전투 불능`,"l-sys");
+      if(t.isEnemy) onEnemyDefeated(t);
+    }
+    for(const r of res) if(!r.miss&&!r.t.fainted){
+      applyStatus(r.t,skill.status,skill.chance,att);
+      if(att.traits.includes("VENOM")) applyStatus(r.t,pick(["ST_POISON","ST_BURN","ST_SLOW"]),20,att);
+    }
+    if(skill.fx==="LIFEGIFT"){
+      for(const a of (att.isEnemy?aliveEnemies():aliveActive())){
+        const h=healTo(a,Math.floor(maxHPof(a)*0.10));
+        if(h>0) log(`${a.name}의 체력이 ${h} 회복`,"l-heal",{kind:"heal",uid:a.uid,amt:h});
+      }
+    }
+    return;
+  }
   for(const t of tl){
     if(skill.type==="ATTACK"){
       if(!hitCheck(att,skill)){ log(`${t.name}에게 빗나갔다`,"l-miss",{kind:"miss",uid:t.uid}); continue; }
@@ -2931,7 +2984,7 @@ function viewPop(){
       <!-- 건너뛰기는 버튼 줄에서 빼 오른쪽 위에 둔다.
            "다음" 바로 옆에 있으면 연타하다 잘못 눌러 튜토리얼이 닫혀 버린다.
            "다음"은 항상 같은 자리(오른쪽 끝)에 오도록 "이전" 자리를 비워 둔다. -->
-      <button class="tutskip" data-a="tutSkip">${p.review?"닫기":"건너뛰기 ✕"}</button>
+      ${p.review?"":`<button class="tutskip" data-a="tutSkip">건너뛰기 ✕</button>`}
       <div class="pbtns tutbtns">
         ${p.step>0
           ? `<button class="gbtn" data-a="tutPrev">이전</button>`
@@ -2944,7 +2997,11 @@ function viewPop(){
     body=`<div class="pmsg">${p.msg}</div>
       <div class="pbtns"><button class="gbtn" data-a="popClose">확인</button></div>`;
   }
-  return `<div class="pop"><div class="popbox"><div class="ptitle">${title}</div><div class="pbody">${body}</div></div></div>`;
+  /* 제목 줄 오른쪽 끝의 ✕ — 튜토리얼을 가이드로 열어 본 경우처럼
+     "그냥 닫으면 되는" 팝업에서 본문 버튼 대신 쓴다. */
+  const titleX = p.kind==="tutorial"&&p.review
+    ? `<button class="ptx" data-a="tutSkip" title="닫기">✕</button>` : "";
+  return `<div class="pop"><div class="popbox"><div class="ptitle">${title}${titleX}</div><div class="pbody">${body}</div></div></div>`;
 }
 
 /* ============================================================================
@@ -3822,6 +3879,8 @@ function fxCast(uid, type){
 /* 로그 줄에 붙은 연출 재생 */
 function playFx(fx){
   if(!fx||document.hidden) return;
+  // 전체 공격처럼 한 줄에 여러 대상이 묶인 경우 모두 동시에 재생한다
+  if(Array.isArray(fx)){ fx.forEach(playFx); return; }
   switch(fx.kind){
     case "drops":  playDrops(fx); break;
     case "hit":    fxHit(fx.uid, fx.dmg, fx.crit); break;
