@@ -236,6 +236,8 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
 .orderhint{text-align:center;font-size:9.5px;color:#6b7ea8;margin-top:2px}
 
 .pickzone{flex:1;display:grid;grid-template-columns:1fr 250px;gap:9px;min-height:0}
+.pickhint{position:absolute;top:-7px;right:9px;font-size:9px;color:var(--txt3);
+  background:#141a28;padding:0 6px;letter-spacing:.02em}
 .pickgrid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);
   gap:7px;padding:13px 9px 6px}
 .ccard{
@@ -254,7 +256,10 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
 .pager button:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}
 .pager button:disabled{opacity:.3;cursor:not-allowed}
 
-.detail{padding:13px 11px 9px;display:flex;flex-direction:column;gap:7px;overflow-y:auto}
+/* 스크롤은 안쪽 .dscroll 이 맡는다 — 프레임 자체가 스크롤 컨테이너가 되면
+   테두리 위로 8px 걸쳐 놓은 .flabel 이 잘려 보인다. */
+.detail{padding:13px 11px 9px;display:flex;flex-direction:column;min-height:0}
+.detail .dscroll{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:7px}
 .detail .dmotion{
   height:106px;border:1px solid #2c3651;background:radial-gradient(ellipse at 50% 70%,#212a40,#111726);
   border-radius:2px;display:flex;align-items:center;justify-content:center;position:relative}
@@ -2033,10 +2038,13 @@ function viewParty(){
     <div class="pickzone">
       <div class="frame" style="display:flex;flex-direction:column;min-height:0">
         <div class="flabel">선택 가능 크리처 창</div>
+        <div class="pickhint">한 번 누르면 정보 확인 · 한 번 더 누르면 편성</div>
         <div class="pickgrid" style="flex:1">
           ${shown.map(c=>{
             const g=META.grades[c.id], idx=pool.indexOf(c.id);
-            return `<button class="ccard ${idx>=0?"picked":""} ${dcid===c.id?"sel":""}" data-a="pick" data-cid="${c.id}">
+            const isSel=dcid===c.id;
+            return `<button class="ccard ${idx>=0?"picked":""} ${isSel?"sel":""}" data-a="pick" data-cid="${c.id}"
+              title="${idx>=0?"다시 누르면 편성에서 뺍니다":isSel?"다시 누르면 편성에 넣습니다":"누르면 정보를 봅니다"}">
               ${idx>=0?`<div class="deploylbl">${idx<2?"출전":"대기"}</div>`:""}
               ${sigil(c.id,g,"lg")}
               <div class="cn">${esc(displayName(c,g))}</div>
@@ -2053,6 +2061,7 @@ function viewParty(){
 
       <div class="frame detail">
         <div class="flabel">선택 크리처 정보</div>
+        <div class="dscroll">
         <div class="dmotion">${sigil(dcid,dg,"xl")}<div class="mlbl">크리처 모션</div></div>
         <div class="dname">${esc(displayName(dc,dg))}</div>
         <div class="drow"><span>타입 (역할군)</span>${roleTag(dc.role)}</div>
@@ -2067,6 +2076,7 @@ function viewParty(){
             <div class="k1">${i===0?"[공통] ":""}${esc(s.name)}</div>
             <div class="k2">${s.type==="ATTACK"?`위력 ${s.power} · 명중 ${s.acc}%`:s.type}${s.status?` · ${STATUS[s.status].kr} ${s.chance}%`:""}</div>
           </div>`).join("")}
+        </div>
         </div>
       </div>
     </div>
@@ -3335,9 +3345,11 @@ document.addEventListener("click",ev=>{
       break;
 
     /* 편성 */
+    /* 한 번 누르면 정보 확인, 이미 보고 있는 크리처를 다시 누르면 편성 등록 · 해제.
+       (누르자마자 편성되면 스탯을 확인할 방법이 없다) */
     case "pick": {
       const cid=el.dataset.cid;
-      UI.detailCid=cid;
+      if(UI.detailCid!==cid){ UI.detailCid=cid; render(); break; }
       const at=UI.pool.indexOf(cid);
       if(at>=0) UI.pool.splice(at,1);
       else if(UI.pool.length<4) UI.pool.push(cid);
