@@ -798,7 +798,7 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
  * ==========================================================================*/
 const BAL = {
   enemy:{
-    hp:70, atk:36, def:31, spd:44,
+    hp:80, atk:42, def:31, spd:44,
     spdPerFloor:0.03,
     /* 층이 오를수록 붙는 추가 난도와 개체 편차.
        floorPower 는 커먼 편성이 10~15층에서 멈추도록 후반을 세우는 항이고,
@@ -817,7 +817,7 @@ const BAL = {
     /* 돌연변이 보스의 강화 폭은 고정값이 아니라 구간 난수다.
        고정하면 전투가 전부 아니면 전무로 갈라져 등급별 클리어율이 계단이 되고,
        난수로 두면 기획서 4-1 의 40 → 60 → 75 → 90% 곡선이 매끄럽게 이어진다. */
-    bossMutantMin:1.30, bossMutantMax:2.45,
+    bossMutantMin:1.30, bossMutantMax:2.80,
   },
   crit:0.05, critMul:1.6,
   enrageTurn:20, enrageStep:0.12,   // 20턴 초과 시 적 공격력이 턴당 12% 누적 (교착 방지)
@@ -856,6 +856,9 @@ const BAL = {
   /* 승급 비용 배수. 판당 성장 재화 수입이 약 656 이라 40 일 때는 14판이면 모든 성장이
      끝나 이벤트 기간(D-14)의 대부분이 비었다. 120 이면 전부 만렙까지 40여 판이 걸려
      하루 3판 기준으로 기간 마지막까지 목표가 남는다 (기획서 2-9 "장기 목표로 유지"). */
+  /* 역할군 패시브 1레벨당 스탯 상승률. 0.02 일 때는 만렙이어도 +20% 뿐이라
+     찍지 않아도 클리어에 지장이 없어 성장 축으로 체감되지 않았다. */
+  rolePassiveStep:0.035,
   upgradeN:120,
   entriesBase:3,        // 기본 일일 입장 (기획서 2-2)
   entriesMax:5,         // 일일 미션 2회 추가 시 상한
@@ -867,10 +870,13 @@ const BAL = {
 /* ============================================================================
  * 1. 데이터 테이블 — 크리처타워_데이터테이블.xlsx 이관
  * ==========================================================================*/
+/* 역할군은 총 전투력을 비슷하게 두되 배분을 극단화한다.
+   차이가 작으면 어느 역할군을 골라도 결과가 같아져 편성이 선택이 아니게 된다.
+   공격형은 유리몸 딜러, 방어형은 버티는 대신 화력이 낮고, 속도형은 선공을 독점한다. */
 const ROLES = {
-  ROLE_ATK:{kr:"공격형", en:"Attacker", color:"#e2564a", hp:100, atk:62, def:34, spd:56, common:"SK_COM_ATK"},
-  ROLE_DEF:{kr:"방어형", en:"Defender", color:"#4a86e2", hp:138, atk:46, def:54, spd:36, common:"SK_COM_DEF"},
-  ROLE_SPD:{kr:"속도형", en:"Speeder",  color:"#3fbf8f", hp:112, atk:52, def:36, spd:72, common:"SK_COM_SPD"},
+  ROLE_ATK:{kr:"공격형", en:"Attacker", color:"#e2564a", hp: 96, atk:76, def:28, spd:55, common:"SK_COM_ATK"},
+  ROLE_DEF:{kr:"방어형", en:"Defender", color:"#4a86e2", hp:152, atk:46, def:64, spd:32, common:"SK_COM_DEF"},
+  ROLE_SPD:{kr:"속도형", en:"Speeder",  color:"#3fbf8f", hp:106, atk:54, def:32, spd:88, common:"SK_COM_SPD"},
 };
 const GRADES = [
   {id:"GR_00", kr:"커먼",     score:0, cost:0,   color:"#8b96ad"},
@@ -979,11 +985,10 @@ const DRAFT_ITEMS = [
   {id:"IT_REVIVE",  type:"REVIVE",   kr:"부활",                grow:"INSTANT",  stat:"REVIVE",        minFloor:1, icon:"✟", color:"#e0c179"},
   {id:"IT_STAT_01", type:"STAT_UP",  kr:"공격력 강화",         grow:"COMPOUND", stat:"ATK",           minFloor:1, icon:"⚔",  color:"#e2564a"},
   {id:"IT_STAT_02", type:"STAT_UP",  kr:"방어력 강화",         grow:"COMPOUND", stat:"DEF",           minFloor:1, icon:"🛡", color:"#4a86e2"},
-  {id:"IT_STAT_03", type:"STAT_UP",  kr:"스피드 강화",         grow:"COMPOUND", stat:"SPD",           minFloor:1, icon:"🌀", color:"#3fbf8f", rare:true},
+  {id:"IT_STAT_03", type:"STAT_UP",  kr:"스피드 강화",         grow:"COMPOUND", stat:"SPD",           minFloor:1, icon:"🌀", color:"#3fbf8f", weight:1},
   {id:"IT_STAT_04", type:"STAT_UP",  kr:"최대 체력 강화",      grow:"COMPOUND", stat:"MAX_HP",        minFloor:1, icon:"❤",  color:"#e2564a"},
   {id:"IT_SKILL_01",type:"SKILL_UP", kr:"스킬 위력 강화",      grow:"SIMPLE",   stat:"SKILL_POWER",   minFloor:1, icon:"✦",  color:"#d9b45f"},
   {id:"IT_SKILL_02",type:"SKILL_UP", kr:"스킬 명중 강화",      grow:"SIMPLE",   stat:"SKILL_ACCURACY",minFloor:1, icon:"◎",  color:"#d9b45f"},
-  {id:"IT_SKILL_03",type:"SKILL_UP", kr:"상태이상 적용률 강화",grow:"SIMPLE",   stat:"STATUS_CHANCE", minFloor:3, icon:"☠",  color:"#d066d0"},
   {id:"IT_SKILL_04",type:"SKILL_UP", kr:"치명타 확률 강화",    grow:"SIMPLE",   stat:"CRIT_RATE",     minFloor:3, icon:"✧",  color:"#e0a54a"},
 ];
 const DI = Object.fromEntries(DRAFT_ITEMS.map(i=>[i.id,i]));
@@ -1548,7 +1553,7 @@ function makeUnit(cid,grade,isEnemy,slot,opt){
   const c=CR[cid], r=ROLES[c.role];
   const gm=BAL.gradeMul[grade];
   const gd=1+(gm-1)*BAL.gradeDefScale;   // 방어력은 완만하게
-  const rp=isEnemy?1:(1+META.rolePassive[c.role]*0.02);
+  const rp=isEnemy?1:(1+META.rolePassive[c.role]*BAL.rolePassiveStep);
   const sc=opt.scale||{hp:1,atk:1,def:1,spd:1};
   const base={
     hp:Math.round(r.hp*gm*rp*sc.hp), atk:Math.round(r.atk*gm*rp*sc.atk),
@@ -2510,7 +2515,7 @@ const ROLE_PASSIVE_MAX = 10;
 // RUN 과 무관하게 계산하는 소재 스탯 (강화 창 미리보기용)
 function baseStats(cid, grade){
   const c=CR[cid], r=ROLES[c.role];
-  const gm=BAL.gradeMul[grade], rp=1+META.rolePassive[c.role]*0.02;
+  const gm=BAL.gradeMul[grade], rp=1+META.rolePassive[c.role]*BAL.rolePassiveStep;
   const gd=1+(gm-1)*BAL.gradeDefScale;
   return {
     hp:Math.round(r.hp*gm*rp), atk:Math.round(r.atk*gm*rp),
@@ -3125,7 +3130,9 @@ function onFloorClear(){
   const enhPool=DRAFT_ITEMS.filter(it=>
     ((it.type!=="HEAL"&&it.type!=="REVIVE") || it.stat==="STATUS_CLEAR")
     && it.minFloor<=RUN.floor && !capped(it));
-  const weighted=[]; enhPool.forEach(it=>{const w=it.rare?1:3; for(let i=0;i<w;i++) weighted.push(it);});
+  /* weight 를 지정하지 않은 항목은 6. 스피드는 1 이라 등장 빈도가 1/6 이다 —
+     선공을 굳히면 상태이상과 맞물려 적이 행동을 못 하는 판이 나와, 희소 자원으로 둔다. */
+  const weighted=[]; enhPool.forEach(it=>{const w=it.weight||6; for(let i=0;i<w;i++) weighted.push(it);});
   const uniq=new Set(weighted.map(x=>x.id)).size;
   const enh=[];
   while(enh.length<3&&enh.length<uniq){
