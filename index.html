@@ -1550,7 +1550,10 @@ let RUN=null, _uid=0;
 function newRun(partyIds){
   RUN={
     party:partyIds.map((cid,i)=>makeUnit(cid,META.grades[cid],false,i)),
-    active:[0,1], floor:1, enemies:[], turn:0, log:[], captured:[],
+    /* 출전은 2자리지만 기획서 3-9 는 불완전한 편성으로도 진입할 수 있게 한다.
+       1체만 편성했다면 출전 자리도 1개뿐이다 (없는 슬롯을 가리키면 안 된다). */
+    active:[0,1].slice(0,Math.min(2,partyIds.length)),
+    floor:1, enemies:[], turn:0, log:[], captured:[],
     draftStat:{ATK:0,DEF:0,SPD:0,MAX_HP:0},
     draftSkill:{SKILL_POWER:0,SKILL_ACCURACY:0,STATUS_CHANCE:0,CRIT_RATE:0},
     draftLog:[], pendingRewards:[], earnedRewards:[],
@@ -2826,11 +2829,17 @@ function viewDex(){
 function viewPop(){
   const p=UI.pop; if(!p) return "";
   let title="알림", body="";
+  /* 기획서 3-9 — 불완전한 편성은 막지 않고 경고만 한다.
+     ("실수 방지" 가 목적이고, 선택지를 같은 비중으로 제시해 강제하지 않는다) */
   if(p.kind==="needParty"){
     title="경고";
+    const n=UI.pool.length;
     body=`<div class="pmsg">출전 크리처가 모두 채워지지 않았습니다.<br>계속 진행하시겠습니까?</div>
-      <div class="psub">4체를 모두 편성해야 진입할 수 있습니다.</div>
-      <div class="pbtns"><button class="gbtn" data-a="popClose">확인</button></div>`;
+      <div class="psub">현재 <b style="color:var(--gold)">${n}체</b> 편성 —
+        ${n<2?"출전 자리가 비어 교체할 크리처가 없습니다.":"대기 자리가 비어 교체가 제한됩니다."}</div>
+      <div class="pbtns">
+        <button class="gbtn gold" data-a="startRunForce">예</button>
+        <button class="gbtn" data-a="popClose">아니오</button></div>`;
   }
   else if(p.kind==="quit"){
     title="포기";
@@ -2941,6 +2950,14 @@ function viewPop(){
 /* ============================================================================
  * 17. 전투 흐름
  * ==========================================================================*/
+/* 실제 진입 — 편성 인원과 무관하게 여기서 입장 횟수를 소모한다 */
+function startRun(){
+  if(!UI.pool.length){ UI.pop={kind:"info",title:"알림",msg:"크리처를 1체 이상 편성해야 합니다."}; render(); return; }
+  if(META.entries<=0){ UI.pop={kind:"info",title:"알림",msg:"잔여 입장 횟수가 없습니다."}; render(); return; }
+  META.entries--; META.lastParty=UI.pool.slice(); saveMeta();
+  newRun(UI.pool); UI.battle.auto=true;
+  enterFloor(1);
+}
 function enterFloor(f){
   /* 상태이상은 층을 넘어가도 그대로 유지된다 (해제 아이템이 의미를 갖도록).
      버프 · 재생도 유지하되, 새 층에 들어설 때 지속 턴이 1 줄어든다. */
@@ -3420,11 +3437,10 @@ document.addEventListener("click",ev=>{
     case "pageUp": UI.page++; render(); break;
     case "pageDn": UI.page--; render(); break;
     case "startRun": {
+      // 4체 미만이면 경고만 하고, "예" 를 고르면 그대로 진입한다 (기획서 3-9)
       if(UI.pool.length<4){ UI.pop={kind:"needParty"}; render(); break; }
-      if(META.entries<=0){ UI.pop={kind:"info",title:"알림",msg:"잔여 입장 횟수가 없습니다."}; render(); break; }
-      META.entries--; META.lastParty=UI.pool.slice(); saveMeta();
-      newRun(UI.pool); b.auto=true;
-      enterFloor(1); break; }
+      startRun(); break; }
+    case "startRunForce": UI.pop=null; startRun(); break;
 
     /* 전투 */
     case "msgNext":
