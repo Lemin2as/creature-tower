@@ -1152,7 +1152,7 @@ function defaultMeta(){
     /* 성장 재화 — 크리처 승급과 역할군 패시브에 공통으로 사용.
        체험용 빌드라 처음부터 6,000 을 쥐어준다. 이벤트 기간 내내 누적되는 성장 축을
        한 판만에 보여주기 위한 값으로, 4체를 레전더리(승급 중반)까지 올릴 수 있는 양이다. */
-    dex:{}, growth:6000,
+    dex:{}, growth:DEMO_GRANT.growth, demoGrantVer:DEMO_GRANT.ver,
     rolePassive:{ROLE_ATK:0,ROLE_DEF:0,ROLE_SPD:0},
     evtCoin:0, items:{CHAR:0, APOC:0},
     entries:BAL.entriesBase, bestFloor:0, runs:0, lastParty:null,
@@ -1204,9 +1204,20 @@ function touchMissions(){
 }
 const missionDone   = x => (x.get(META.mission)||0) >= x.need;
 const missionClaimed= x => !!META.mission.claimed[x.id];
+/* 체험용 지급의 현재 회차. 값을 올리면 이미 저장된 사람에게도 한 번 더 지급된다.
+   (지급을 defaultMeta 에만 두면 신규 방문자만 받게 되어, 예전에 한 번 열어 본 사람은
+    세이브를 지우기 전까지 계속 못 받는다) */
+const DEMO_GRANT = {ver:2, growth:6000};
+
 function loadMeta(){
-  try{ const r=localStorage.getItem(SAVE_KEY); if(r){ META=Object.assign(defaultMeta(),JSON.parse(r)); return; } }catch(e){}
-  META=defaultMeta();
+  try{ const r=localStorage.getItem(SAVE_KEY); if(r){ META=Object.assign(defaultMeta(),JSON.parse(r)); } }catch(e){}
+  if(!META) META=defaultMeta();
+  if((META.demoGrantVer||0) < DEMO_GRANT.ver){
+    // 이전 회차로 이미 받은 몫은 빼고, 부족한 만큼만 채워 준다
+    META.growth=Math.max(META.growth||0, DEMO_GRANT.growth);
+    META.demoGrantVer=DEMO_GRANT.ver;
+    saveMeta();
+  }
 }
 function saveMeta(){ try{ localStorage.setItem(SAVE_KEY,JSON.stringify(META)); }catch(e){} }
 
@@ -3084,8 +3095,12 @@ function onFloorClear(){
   // 미션 진행도
   const M=META.mission;
   M.achv.floors++;
-  if(RUN.floor>=5) M.daily.f5=1;
-  if(RUN.floor>=BAL.finalFloor){ M.daily.f10=1; M.weekly.f10++; M.achv.clears++; }
+  /* 층 도달 미션은 미션 이름 그대로 5층 · 10층 기준이다.
+     예전에는 10층 미션이 BAL.finalFloor 를 보고 있어, 최종 층을 20층으로 늘린 뒤
+     10층을 넘어도 달성되지 않았다. 완주 업적만 최종 층을 기준으로 삼는다. */
+  if(RUN.floor>=5)  M.daily.f5=1;
+  if(RUN.floor>=10){ M.daily.f10=1; M.weekly.f10++; }
+  if(RUN.floor>=BAL.finalFloor) M.achv.clears++;
   saveMeta();
 
   const healed=[];
