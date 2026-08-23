@@ -287,7 +287,11 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
 .upanel.tsel:hover{background:#2b2140}
 .upanel.dead{opacity:.32;filter:grayscale(1)}
 .upanel .ui1{flex:1;min-width:0}
-.upanel .un{font-size:10.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.upanel .un{font-size:10.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  display:flex;align-items:baseline;gap:6px}
+/* 아군은 남은 체력을 수치로도 보여 준다 (적은 막대만) */
+.upanel .uhp{margin-left:auto;font-size:9.5px;font-weight:600;color:var(--txt2);
+  font-variant-numeric:tabular-nums;flex:0 0 auto}
 .upanel .uh{font-size:9px;color:var(--txt3);font-variant-numeric:tabular-nums;margin-top:1px}
 .vsmark{display:flex;align-items:center;justify-content:center;font-size:10px;color:#4a5675;font-weight:800;height:46px}
 
@@ -809,7 +813,7 @@ const BAL = {
        엘리트를 길게 만들면 소모전이 커져 승급 초반(레어) 클리어율이 40% 아래로 떨어진다.
        두 지표가 동시에 성립하지 않아, 1차 지표인 클리어율을 택한 결과다. */
     elite:{hp:1.45, atk:1.00, def:1.10, spd:1.10},
-    boss :{hp:1.35, atk:0.90, def:1.32, spd:1.18},
+    boss :{hp:1.28, atk:0.84, def:1.32, spd:1.18},
     eliteActions:1,
     bossActions:2,        // 보스는 턴당 2회 행동 (1체 대 2체의 행동 경제 보정)
     bossPierce:0.10,      // 보스 공격은 방어력 10% 무시
@@ -835,7 +839,7 @@ const BAL = {
      전력을 무한정 밀어올리는 축이 아니므로 종류별로 누적 상한을 둔다.
      (4-2 가 "동일 스탯 강화 3번"을 효율 역전 기준점으로 잡고 있어 그 언저리로 설정) */
   draft:{
-    statCompound:0.08, skillPower:0.10, skillAcc:0.05,
+    statCompound:0.08, skillPower:0.10, skillAcc:0.03, accCap:0.95,
     statusChance:0.08, critRate:0.05,
     statCap:4, skillCap:4,     // 스탯 종류별 · 스킬 종류별 최대 중첩
     healS:{pct:0.35, flat:45}, healL:{pct:0.60, flat:80}, healAll:{pct:0.40, flat:50},
@@ -847,7 +851,7 @@ const BAL = {
   /* 승급 배율. 초반 승급의 체감이 크고 뒤로 갈수록 완만해진다 —
      기획서 2-9 의 승급 비용이 가속(N·2N·3.5N·5.5N·8N·12N)하므로 효과는 체감시켜야
      4-1 의 클리어율 목표(40~60 → 60~75 → 75~90%)처럼 상단이 수렴한다. */
-  gradeMul:[1.00,1.20,1.40,1.55,1.68,1.78,1.86],
+  gradeMul:[1.00,1.20,1.40,1.55,1.66,1.75,1.82],
   /* 방어력은 등급 배율을 그대로 받지 않고 절반만 반영한다.
      공격·방어에 같은 배율이 곱하면 등급 격차가 제곱으로 벌어져,
      기획서 4-1의 완만한 클리어율 곡선(40→60→75→90%)이 성립하지 않는다.
@@ -864,6 +868,8 @@ const BAL = {
   entriesMax:5,         // 일일 미션 2회 추가 시 상한
   finalFloor:20,        // 기획서 원안 — 5 · 10 · 15층 엘리트, 20층 보스
   msgDelay:520,
+  /* 키 입력 간격 — X 를 꾹 눌렀을 때 확정이 연속으로 들어가는 것을 막는다. */
+  selectInterval:180, holdInterval:110,
   bgmVolume:0.10,       // 배경음 시작 볼륨 (0 ~ 1) — 메인 화면 슬라이더로 조절 가능
 };
 
@@ -988,7 +994,7 @@ const DRAFT_ITEMS = [
   {id:"IT_STAT_03", type:"STAT_UP",  kr:"스피드 강화",         grow:"COMPOUND", stat:"SPD",           minFloor:1, icon:"🌀", color:"#3fbf8f", weight:1},
   {id:"IT_STAT_04", type:"STAT_UP",  kr:"최대 체력 강화",      grow:"COMPOUND", stat:"MAX_HP",        minFloor:1, icon:"❤",  color:"#e2564a"},
   {id:"IT_SKILL_01",type:"SKILL_UP", kr:"스킬 위력 강화",      grow:"SIMPLE",   stat:"SKILL_POWER",   minFloor:1, icon:"✦",  color:"#d9b45f"},
-  {id:"IT_SKILL_02",type:"SKILL_UP", kr:"스킬 명중 강화",      grow:"SIMPLE",   stat:"SKILL_ACCURACY",minFloor:1, icon:"◎",  color:"#d9b45f"},
+  {id:"IT_SKILL_02",type:"SKILL_UP", kr:"스킬 명중 강화",      grow:"SIMPLE",   stat:"SKILL_ACCURACY",minFloor:1, icon:"◎",  color:"#d9b45f", weight:3},
   {id:"IT_SKILL_04",type:"SKILL_UP", kr:"치명타 확률 강화",    grow:"SIMPLE",   stat:"CRIT_RATE",     minFloor:3, icon:"✧",  color:"#e0a54a"},
 ];
 const DI = Object.fromEntries(DRAFT_ITEMS.map(i=>[i.id,i]));
@@ -1737,7 +1743,14 @@ function calcDamage(att,tgt,power){
 }
 function hitCheck(att,skill){
   let acc=skill.acc/100;
-  if(!att.isEnemy) acc+=RUN.draftSkill.SKILL_ACCURACY*BAL.draft.skillAcc;
+  if(!att.isEnemy){
+    /* 강화로 올린 명중은 accCap 을 넘지 못한다. 상한이 없으면 두 번만 집어도
+       명중 100% 가 되어 "빗나감" 이라는 실패 요인이 통째로 사라진다
+       (기획서 4-1 — 실수나 오판으로 인한 실패율을 설계한다).
+       원래 명중이 이미 상한보다 높은 스킬은 그대로 둔다. */
+    const bonus=RUN.draftSkill.SKILL_ACCURACY*BAL.draft.skillAcc;
+    acc=Math.max(acc, Math.min(acc+bonus, BAL.draft.accCap));
+  }
   if(att.status.ST_BLIND) acc-=BAL.status.BLIND;
   return chance(clamp(acc,0.05,1));
 }
@@ -2129,7 +2142,7 @@ function battleBody(){
       data-uid="${u.uid}" ${tsel?`data-a="target"`:""}>
       ${sigil(u.cid,u.grade,"sm")}
       <div class="ui1">
-        <div class="un">${esc(u.name)}</div>
+        <div class="un">${esc(u.name)}${isEnemy?"":`<span class="uhp">${viewHp(u)} / ${maxHPof(u)}</span>`}</div>
         ${hpbar(u)}
         ${badges(u)}
       </div></div>`;
@@ -2344,7 +2357,7 @@ function draftDesc(it){
     case "ATK": case "DEF": case "SPD": case "MAX_HP":
       return `편성 크리처 전체의 ${{ATK:"공격력",DEF:"방어력",SPD:"스피드",MAX_HP:"최대 체력"}[it.stat]}을 <b>${Math.round(D.statCompound*100)}%</b> 올린다. 복리로 누적되며 현재 <b>${RUN.draftStat[it.stat]}회</b> 획득.`;
     case "SKILL_POWER":    return `모든 스킬의 위력을 <b>${Math.round(D.skillPower*100)}%</b> 올린다. 단리로 누적되며 현재 <b>${RUN.draftSkill.SKILL_POWER}회</b> 획득.`;
-    case "SKILL_ACCURACY": return `모든 스킬의 명중률을 <b>${Math.round(D.skillAcc*100)}%p</b> 올린다. 단리로 누적되며 현재 <b>${RUN.draftSkill.SKILL_ACCURACY}회</b> 획득.`;
+    case "SKILL_ACCURACY": return `모든 스킬의 명중률을 <b>${Math.round(D.skillAcc*100)}%p</b> 올린다. 단리로 누적되며 현재 <b>${RUN.draftSkill.SKILL_ACCURACY}회</b> 획득.<br><span style="color:var(--txt3)">강화로는 최대 ${Math.round(D.accCap*100)}% 까지만 오른다.</span>`;
     case "STATUS_CHANCE":  return `상태이상 적용 확률을 <b>${Math.round(D.statusChance*100)}%p</b> 올린다. 단리로 누적되며 현재 <b>${RUN.draftSkill.STATUS_CHANCE}회</b> 획득.`;
     case "CRIT_RATE":      return `치명타 확률을 <b>${Math.round(D.critRate*100)}%p</b> 올린다. 단리로 누적되며 현재 <b>${RUN.draftSkill.CRIT_RATE}회</b> 획득.`;
     case "HP": { const c=it.id==="IT_HEAL_01"?D.healS:D.healL;
@@ -3824,7 +3837,7 @@ function playFx(fx){
  *   화면마다 포커스 순서를 따로 정의하지 않고, 실제 렌더된 요소의 화면 좌표로
  *   가장 가까운 대상을 찾아 이동한다. 새 화면을 추가해도 그대로 동작한다.
  * ==========================================================================*/
-const KEY = { focus:null, active:false };
+const KEY = { focus:null, active:false, lastSelect:0, lastMsg:0 };
 
 function navTargets(){
   const win=document.getElementById("win");
@@ -3941,12 +3954,22 @@ document.addEventListener("keydown",e=>{
   const kl=k.toLowerCase();
   if(kl==="x"||k==="Enter"||k===" "){
     e.preventDefault();
-    // 전투 메시지 진행 중에는 X 가 텍스트 넘김
-    if(UI.screen==="battle"&&UI.battle.phase==="message"){ clearTimer(); advanceMsg(); return; }
+    /* 키를 누르고 있을 때의 자동 반복(e.repeat)은 무시한다.
+       예전에는 반복 입력이 그대로 확정으로 이어져, X 를 꾹 누르면
+       명령 선택 → 턴 진행 → 다음 층까지 저절로 넘어가 버렸다.
+       메시지 넘김만 반복을 허용하되 최소 간격을 둔다. */
+    const now=Date.now();
+    if(UI.screen==="battle"&&UI.battle.phase==="message"){
+      if(e.repeat && now-KEY.lastMsg<BAL.holdInterval) return;
+      KEY.lastMsg=now; clearTimer(); advanceMsg(); return;
+    }
+    if(e.repeat) return;
+    if(now-KEY.lastSelect<BAL.selectInterval) return;
+    KEY.lastSelect=now;
     if(!KEY.active){ KEY.active=true; paintFocus(); return; }
     pressSelect(); return;
   }
-  if(kl==="c"){ e.preventDefault(); pressBack(); return; }
+  if(kl==="c"){ if(e.repeat) return; e.preventDefault(); pressBack(); return; }
   // ESC — 도전 진행 중에는 중도 퇴장 경고 UI (기획서 3-8), 그 외에는 뒤로가기
   if(k==="Escape"){
     e.preventDefault();
