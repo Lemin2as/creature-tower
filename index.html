@@ -1126,6 +1126,11 @@ const TUTORIAL=[
         "<b>ESC</b> 를 누르면 도전 중도 퇴장 경고가 뜹니다.<br><br>"+
         "<span class='tutsub'>마우스로도 모두 조작할 수 있습니다.<br>"+
         "이 안내는 메인 화면의 <b>가이드</b> 에서 다시 볼 수 있습니다.</span>" },
+  { title:"체험 안내", art:"🎁",
+    msg:"둘러보시기 편하도록 <b>성장 재화 2,000</b> 을 드렸습니다.<br>"+
+        "메인의 <b>크리처 강화</b> 에서 승급과 역할군 패시브에 쓸 수 있습니다.<br><br>"+
+        "<span class='tutsub'>4체를 레전더리까지 올릴 수 있는 양입니다. 어디에 몰아줄지가 편성 전략이 됩니다.<br>"+
+        "입장 횟수가 떨어지면 화면 아래 <b>입장 횟수 충전</b> 으로 계속 진행하실 수 있습니다.</span>" },
 ];
 
 /* ============================================================================
@@ -1136,7 +1141,10 @@ let META=null;
 function defaultMeta(){
   return {
     grades:Object.fromEntries(CREATURES.map(c=>[c.id,0])),
-    dex:{}, growth:0,   // 성장 재화 — 크리처 승급과 역할군 패시브에 공통으로 사용
+    /* 성장 재화 — 크리처 승급과 역할군 패시브에 공통으로 사용.
+       체험용 빌드라 처음부터 2,000 을 쥐어준다. 이벤트 기간 내내 누적되는 성장 축을
+       한 판만에 보여주기 위한 값으로, 4체를 레전더리(승급 중반)까지 올릴 수 있는 양이다. */
+    dex:{}, growth:2000,
     rolePassive:{ROLE_ATK:0,ROLE_DEF:0,ROLE_SPD:0},
     evtCoin:0, items:{CHAR:0, APOC:0},
     entries:BAL.entriesBase, bestFloor:0, runs:0, lastParty:null,
@@ -3220,10 +3228,9 @@ function render(){
     <span class="dchip">최고 층 <b>${META.bestFloor}F</b></span>
     <span class="dchip">도전 <b>${META.runs}</b></span>
     <span class="dchip" style="color:var(--txt2)">↑↓ 순서 이동 · ←→ 같은 줄 · <b>X</b> 선택 · <b>C</b> 취소 · <b>ESC</b> 나가기</span>
-    <button class="dbtn" data-a="toArt">크리처 이미지 등록</button>
-    <button class="dbtn" data-a="refill">입장 충전</button>
-    <button class="dbtn" data-a="resetSave">세이브 초기화</button>
-    <span style="margin-left:auto">프로토타입 검증용 HUD · 기획서 외</span>`;
+    <button class="dbtn" data-a="refill">입장 횟수 충전</button>
+    <button class="dbtn" data-a="resetSave">처음부터 다시</button>
+    <span style="margin-left:auto">체험용 패널 — 하루 입장 제한 없이 둘러보실 수 있습니다</span>`;
   if(typeof paintFocus==="function") paintFocus();
 }
 
