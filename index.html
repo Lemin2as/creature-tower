@@ -725,7 +725,7 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
 .popbox .ptitle{
   background:linear-gradient(180deg,#2b3348,#1a2131);border-bottom:1px solid var(--win-edge2);
   padding:5px 12px;font-size:11.5px;font-weight:700;color:#e5d3a3;text-align:center;letter-spacing:.04em}
-.popbox .pbody{padding:18px 20px 14px;text-align:center}
+.popbox .pbody{padding:18px 20px 14px;text-align:center;position:relative}
 .popbox .pmsg{font-size:13px;line-height:1.7}
 .popbox .psub{font-size:11px;color:var(--txt2);margin-top:8px;line-height:1.6}
 /* 튜토리얼 팝업 — 왼쪽에 큰 상징, 오른쪽에 설명 */
@@ -738,6 +738,15 @@ button{font-family:inherit; cursor:pointer; border:none; background:none; color:
 }
 .popbox .tuttxt{flex:1;font-size:13px;line-height:1.75}
 .popbox .tutsub{font-size:11px;color:var(--txt2);line-height:1.6}
+/* 건너뛰기 — 팝업 오른쪽 위 모서리. 진행 버튼과 멀리 떨어뜨려 오조작을 막는다. */
+.popbox .tutskip{
+  position:absolute;top:3px;right:6px;z-index:2;
+  font-size:10.5px;color:var(--txt3);padding:3px 6px;border-radius:3px;
+}
+.popbox .tutskip:hover{color:var(--txt2);background:#1b2233}
+/* "이전"이 없는 첫 장에서도 "다음"이 같은 자리에 있도록 빈 자리를 채운다 */
+.popbox .tutbtns{justify-content:space-between}
+.popbox .tutbtns .ghost{visibility:hidden;pointer-events:none}
 .popbox .tutdots{display:flex;gap:6px;justify-content:center;margin-top:14px}
 .popbox .tutdot{width:6px;height:6px;border-radius:50%;background:var(--line)}
 .popbox .tutdot.on{background:var(--gold)}
@@ -2071,13 +2080,12 @@ function viewParty(){
     <div class="pickzone">
       <div class="frame" style="display:flex;flex-direction:column;min-height:0">
         <div class="flabel">선택 가능 크리처 창</div>
-        <div class="pickhint">한 번 누르면 정보 확인 · 한 번 더 누르면 편성</div>
+        <div class="pickhint">누르면 편성에 넣고, 다시 누르면 뺍니다</div>
         <div class="pickgrid" style="flex:1">
           ${shown.map(c=>{
             const g=META.grades[c.id], idx=pool.indexOf(c.id);
-            const isSel=dcid===c.id;
-            return `<button class="ccard ${idx>=0?"picked":""} ${isSel?"sel":""}" data-a="pick" data-cid="${c.id}"
-              title="${idx>=0?"다시 누르면 편성에서 뺍니다":isSel?"다시 누르면 편성에 넣습니다":"누르면 정보를 봅니다"}">
+            return `<button class="ccard ${idx>=0?"picked":""} ${dcid===c.id?"sel":""}" data-a="pick" data-cid="${c.id}"
+              title="${idx>=0?"다시 누르면 편성에서 뺍니다":"누르면 편성에 넣습니다"}">
               ${idx>=0?`<div class="deploylbl">${idx<2?"출전":"대기"}</div>`:""}
               ${sigil(c.id,g,"lg")}
               <div class="cn">${esc(displayName(c,g))}</div>
@@ -2911,9 +2919,14 @@ function viewPop(){
       </div>
       <div class="tutdots">${TUTORIAL.map((_,i)=>
         `<span class="tutdot${i===p.step?" on":""}"></span>`).join("")}</div>
-      <div class="pbtns">
-        ${p.step>0?`<button class="gbtn" data-a="tutPrev">이전</button>`:""}
-        <button class="gbtn" data-a="tutSkip">${p.review?"닫기":"건너뛰기"}</button>
+      <!-- 건너뛰기는 버튼 줄에서 빼 오른쪽 위에 둔다.
+           "다음" 바로 옆에 있으면 연타하다 잘못 눌러 튜토리얼이 닫혀 버린다.
+           "다음"은 항상 같은 자리(오른쪽 끝)에 오도록 "이전" 자리를 비워 둔다. -->
+      <button class="tutskip" data-a="tutSkip">${p.review?"닫기":"건너뛰기 ✕"}</button>
+      <div class="pbtns tutbtns">
+        ${p.step>0
+          ? `<button class="gbtn" data-a="tutPrev">이전</button>`
+          : `<span class="gbtn ghost" aria-hidden="true"></span>`}
         <button class="gbtn gold" data-a="${last?"tutDone":"tutNext"}">${last?(p.review?"확인":"시작하기"):"다음"}</button>
       </div>`;
   }
@@ -3394,11 +3407,11 @@ document.addEventListener("click",ev=>{
       break;
 
     /* 편성 */
-    /* 한 번 누르면 정보 확인, 이미 보고 있는 크리처를 다시 누르면 편성 등록 · 해제.
-       (누르자마자 편성되면 스탯을 확인할 방법이 없다) */
+    /* 한 번 누르면 오른쪽에 정보가 뜨면서 바로 편성에 들어가고, 다시 누르면 빠진다.
+       (두 번 눌러야 등록되는 방식은 조작이 번거롭다는 피드백으로 되돌렸다) */
     case "pick": {
       const cid=el.dataset.cid;
-      if(UI.detailCid!==cid){ UI.detailCid=cid; render(); break; }
+      UI.detailCid=cid;
       const at=UI.pool.indexOf(cid);
       if(at>=0) UI.pool.splice(at,1);
       else if(UI.pool.length<4) UI.pool.push(cid);
