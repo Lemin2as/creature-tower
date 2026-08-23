@@ -3000,6 +3000,15 @@ function resolveTurn(){
     if(cc.length) log(`${J(u.name,"은","는")} ${cc.map(id=>STATUS[id].kr).join("·")} 상태로 움직일 수 없다`,"l-miss");
   }
 
+  /* 교체는 스피드와 무관하게 최우선 실행한다 (기획서 2-5).
+     적의 공격 대상 선택보다도 먼저 처리해야 한다 — 순서가 뒤바뀌면
+     적이 교체로 빠져나간 크리처를 그대로 때리게 된다. */
+  for(const a of b.actions.filter(x=>x.kind==="swap")){
+    const ai=RUN.active.indexOf(a.fromIdx);
+    RUN.active[ai]=a.toIdx;
+    log(`${RUN.party[a.fromIdx].name}, 돌아와! 가라 ${RUN.party[a.toIdx].name}!`,"l-sys");
+  }
+
   const enemyActs=[];
   for(const e of aliveEnemies()){
     const n=e.tier==="boss"?BAL.enemy.bossActions
@@ -3008,12 +3017,6 @@ function resolveTurn(){
       const a=canAct(e)?enemyChoose(e):{unit:e,skill:null,targets:[]};
       if(a) enemyActs.push(a);
     }
-  }
-
-  for(const a of b.actions.filter(x=>x.kind==="swap")){
-    const ai=RUN.active.indexOf(a.fromIdx);
-    RUN.active[ai]=a.toIdx;
-    log(`${RUN.party[a.fromIdx].name}, 돌아와! 가라 ${RUN.party[a.toIdx].name}!`,"l-sys");
   }
   const acts=[
     ...b.actions.filter(x=>x.kind==="skill").map(x=>({unit:x.unit,skill:x.skill,targets:x.targets})),
@@ -3028,12 +3031,17 @@ function resolveTurn(){
       log(`${J(a.unit.name,"은","는")} ${cc.map(id=>STATUS[id].kr).join("·")} 상태로 움직일 수 없다`,"l-miss");
       continue;
     }
-    // 지정 대상이 이미 쓰러졌으면 살아있는 대상으로 자동 재지정
+    /* 지정 대상이 쓰러졌거나 교체로 필드를 떠났으면 살아있는 대상으로 자동 재지정.
+       (같은 턴에 교체가 먼저 실행되므로 벤치로 내려간 크리처가 남아 있을 수 있다) */
+    const onField=t=>t.isEnemy ? RUN.enemies.includes(t) : activeUnits().includes(t);
     const want=a.targets.filter(Boolean);
-    let tg=want.filter(t=>!t.fainted);
+    let tg=want.filter(t=>!t.fainted&&onField(t));
     if(want.length&&!tg.length){
       tg=autoTargets(a.unit,a.skill);
-      if(tg.length) log(`${J(want[0].name,"이","가")} 쓰러져 ${J(a.unit.name,"은","는")} ${J(tg[0].name,"으로","로")} 목표를 바꿨다`,"l-sys");
+      if(tg.length){
+        const why=want[0].fainted ? "쓰러져" : "물러나";
+        log(`${J(want[0].name,"이","가")} ${why} ${J(a.unit.name,"은","는")} ${J(tg[0].name,"으로","로")} 목표를 바꿨다`,"l-sys");
+      }
     }
     if(!tg.length) tg=autoTargets(a.unit,a.skill);
     resolveSkill(a.unit,a.skill,tg);
