@@ -1025,7 +1025,7 @@ const MISSIONS = {
     {id:"A02", kr:"크리처 100회 포획하기",            need:100, rw:{evt:500},  get:m=>m.achv.captures},
     {id:"A03", kr:"돌연변이 개체 20회 포획하기",      need:20,  rw:{apoc:300}, get:m=>m.achv.mutants},
     {id:"A04", kr:"타워 누적 100층 등반하기",         need:100, rw:{evt:500},  get:m=>m.achv.floors},
-    {id:"A05", kr:"10층 완주 10회 달성하기",          need:10,  rw:{evt:500},  get:m=>m.achv.clears},
+    {id:"A05", kr:`${BAL.finalFloor}층 완주 10회 달성하기`,   need:10,  rw:{evt:500},  get:m=>m.achv.clears},
     {id:"A06", kr:"엘리트 크리처 15회 처치하기",      need:15,  rw:{evt:500},  get:m=>m.achv.elites},
     {id:"A07", kr:"크리처 4체 레어 이상 승급하기",    need:4,   rw:{evt:500},  get:()=>CREATURES.filter(c=>META.grades[c.id]>=2).length},
     {id:"A08", kr:"크리처 1체 태초 달성하기",         need:1,   rw:{evt:500},  get:()=>CREATURES.filter(c=>META.grades[c.id]>=6).length},
@@ -3099,7 +3099,9 @@ function onFloorClear(){
      예전에는 10층 미션이 BAL.finalFloor 를 보고 있어, 최종 층을 20층으로 늘린 뒤
      10층을 넘어도 달성되지 않았다. 완주 업적만 최종 층을 기준으로 삼는다. */
   if(RUN.floor>=5)  M.daily.f5=1;
-  if(RUN.floor>=10){ M.daily.f10=1; M.weekly.f10++; }
+  /* 주간 미션은 "10층까지 클리어 4회" 이므로 도전 1회에 한 번만 센다.
+     층마다 올리면 10 ~ 20층을 지나며 한 판에 11회가 올라간다. */
+  if(RUN.floor>=10 && !RUN.f10Counted){ M.daily.f10=1; M.weekly.f10++; RUN.f10Counted=true; }
   if(RUN.floor>=BAL.finalFloor) M.achv.clears++;
   saveMeta();
 
