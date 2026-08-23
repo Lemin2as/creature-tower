@@ -813,7 +813,7 @@ const BAL = {
        엘리트를 길게 만들면 소모전이 커져 승급 초반(레어) 클리어율이 40% 아래로 떨어진다.
        두 지표가 동시에 성립하지 않아, 1차 지표인 클리어율을 택한 결과다. */
     elite:{hp:1.45, atk:1.00, def:1.10, spd:1.10},
-    boss :{hp:1.28, atk:0.84, def:1.32, spd:1.18},
+    boss :{hp:1.22, atk:0.76, def:1.32, spd:1.18},
     eliteActions:1,
     bossActions:2,        // 보스는 턴당 2회 행동 (1체 대 2체의 행동 경제 보정)
     bossPierce:0.10,      // 보스 공격은 방어력 10% 무시
@@ -839,7 +839,7 @@ const BAL = {
      전력을 무한정 밀어올리는 축이 아니므로 종류별로 누적 상한을 둔다.
      (4-2 가 "동일 스탯 강화 3번"을 효율 역전 기준점으로 잡고 있어 그 언저리로 설정) */
   draft:{
-    statCompound:0.08, skillPower:0.10, skillAcc:0.03, accCap:0.95,
+    statCompound:0.08, skillPower:0.10, skillAcc:0.02, accCap:0.95,
     statusChance:0.08, critRate:0.05,
     statCap:4, skillCap:4,     // 스탯 종류별 · 스킬 종류별 최대 중첩
     healS:{pct:0.35, flat:45}, healL:{pct:0.60, flat:80}, healAll:{pct:0.40, flat:50},
@@ -995,6 +995,7 @@ const DRAFT_ITEMS = [
   {id:"IT_STAT_04", type:"STAT_UP",  kr:"최대 체력 강화",      grow:"COMPOUND", stat:"MAX_HP",        minFloor:1, icon:"❤",  color:"#e2564a"},
   {id:"IT_SKILL_01",type:"SKILL_UP", kr:"스킬 위력 강화",      grow:"SIMPLE",   stat:"SKILL_POWER",   minFloor:1, icon:"✦",  color:"#d9b45f"},
   {id:"IT_SKILL_02",type:"SKILL_UP", kr:"스킬 명중 강화",      grow:"SIMPLE",   stat:"SKILL_ACCURACY",minFloor:1, icon:"◎",  color:"#d9b45f", weight:3},
+  {id:"IT_SKILL_03",type:"SKILL_UP", kr:"상태이상 적용률 강화",grow:"SIMPLE",   stat:"STATUS_CHANCE", minFloor:3, icon:"☠",  color:"#d066d0", weight:1},
   {id:"IT_SKILL_04",type:"SKILL_UP", kr:"치명타 확률 강화",    grow:"SIMPLE",   stat:"CRIT_RATE",     minFloor:3, icon:"✧",  color:"#e0a54a"},
 ];
 const DI = Object.fromEntries(DRAFT_ITEMS.map(i=>[i.id,i]));
