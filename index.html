@@ -900,6 +900,7 @@ const BAL = {
   msgDelay:520,
   /* 키 입력 간격 — X 를 꾹 눌렀을 때 확정이 연속으로 들어가는 것을 막는다. */
   selectInterval:180, holdInterval:110,
+  draftLockMs:5000,    // 드래프트 진입 후 키보드 입력을 받지 않는 시간
   bgmVolume:0.10,       // 배경음 시작 볼륨 (0 ~ 1) — 메인 화면 슬라이더로 조절 가능
 };
 
@@ -3242,6 +3243,10 @@ function onFloorClear(){
   }
   UI.draft={cands:[healPick,revivePick,...enh],sel:0,healed};
   UI.screen="draft";
+  /* 진입 직후 잠깐 키보드 입력을 받지 않는다.
+     X 를 연타하며 넘기면 커서가 놓인 첫 항목(회복)만 계속 집게 되어,
+     강화 선택이라는 판단 자체가 없어진다. 마우스 조작은 그대로 열어 둔다. */
+  UI.draftLockUntil = Date.now() + BAL.draftLockMs;
   render();
   if(typeof focusOn==="function") focusOn('[data-a="draftSel"]');
 }
@@ -4036,6 +4041,8 @@ function pressBack(){
 
 document.addEventListener("keydown",e=>{
   if(e.target&&/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  // 드래프트 진입 직후에는 키보드를 받지 않는다 (연타로 넘기는 것을 막는다)
+  if(UI.screen==="draft"&&!UI.pop&&Date.now()<(UI.draftLockUntil||0)){ e.preventDefault(); return; }
   const k=e.key;
   const map={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
   if(map[k]){ e.preventDefault(); moveFocus(map[k][0],map[k][1]); return; }
